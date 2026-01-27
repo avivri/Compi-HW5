@@ -98,10 +98,8 @@ namespace output {
     }
 
     std::string CodeBuffer::emitString(const std::string &str) {
-        // HW5 requires handling strings in globals
         std::string var = "@.str" + std::to_string(++stringCount);
-        // +1 for null terminator
-        int len = str.length() + 1; 
+        int len = str.length() + 1;
         globalsBuffer << var << " = constant [" << len << " x i8] c\"" << str << "\\00\"" << std::endl;
         return var;
     }
@@ -121,12 +119,9 @@ namespace output {
 
     // --- SymbolTable Implementation ---
     SymbolTable::SymbolTable() {
-        pushScope(); // Global scope
-        
-        // Add print and printi to global scope as per instructions
+        pushScope();
         std::vector<ast::BuiltInType> printTypes = {ast::BuiltInType::STRING};
         insertFunc("print", ast::BuiltInType::VOID, printTypes);
-        
         std::vector<ast::BuiltInType> printiTypes = {ast::BuiltInType::INT};
         insertFunc("printi", ast::BuiltInType::VOID, printiTypes);
     }
@@ -144,11 +139,10 @@ namespace output {
     }
 
     void SymbolTable::insertVar(const std::string &name, ast::BuiltInType type, std::string llvmVar) {
-        // Offset is managed for Semantic checks, but for HW5 LLVM we primarily need the llvmVar name (pointer)
         int currentOffset = offsets.back();
         Symbol newSym(name, type, currentOffset, llvmVar);
         tables.back().push_back(newSym);
-        offsets.back()++; 
+        offsets.back()++;
     }
 
     void SymbolTable::insertFunc(const std::string &name, ast::BuiltInType retType, std::vector<ast::BuiltInType> paramTypes) {
@@ -169,15 +163,11 @@ namespace output {
         return getSymbol(name) != nullptr;
     }
 
-
     // --- MyVisitor Implementation ---
 
     MyVisitor::MyVisitor() : blockTerminated(false) {
-        // Emit required external declarations
         buffer.emitGlobal("declare i32 @printf(i8*, ...)");
         buffer.emitGlobal("declare void @exit(i32)");
-        
-        // Emit helper print functions provided in the PDF/Skeleton
         emitPrintFunctions();
     }
 
@@ -191,29 +181,25 @@ namespace output {
             case ast::BuiltInType::BYTE: return "i8";
             case ast::BuiltInType::BOOL: return "i1";
             case ast::BuiltInType::VOID: return "void";
-            case ast::BuiltInType::STRING: return "i8*"; // Strings are pointers
+            case ast::BuiltInType::STRING: return "i8*";
             default: return "i32";
         }
     }
 
     std::string MyVisitor::getZeroValue(ast::BuiltInType type) {
-        if (type == ast::BuiltInType::BOOL) return "0"; 
         return "0";
     }
 
     void MyVisitor::emitPrintFunctions() {
-        // Define string specifiers for printf
         buffer.emitGlobal("@.int_specifier = constant [4 x i8] c\"%d\\0A\\00\"");
         buffer.emitGlobal("@.str_specifier = constant [4 x i8] c\"%s\\0A\\00\"");
-        
-        // printi
+
         buffer.emitGlobal("define void @printi(i32) {");
         buffer.emitGlobal("  %spec_ptr = getelementptr [4 x i8], [4 x i8]* @.int_specifier, i32 0, i32 0");
         buffer.emitGlobal("  call i32 (i8*, ...) @printf(i8* %spec_ptr, i32 %0)");
         buffer.emitGlobal("  ret void");
         buffer.emitGlobal("}");
 
-        // print
         buffer.emitGlobal("define void @print(i8*) {");
         buffer.emitGlobal("  %spec_ptr = getelementptr [4 x i8], [4 x i8]* @.str_specifier, i32 0, i32 0");
         buffer.emitGlobal("  call i32 (i8*, ...) @printf(i8* %spec_ptr, i8* %0)");
@@ -221,7 +207,22 @@ namespace output {
         buffer.emitGlobal("}");
     }
 
-    // --- Nodes Visitation ---
+    // Helper to emit implicit cast if needed
+    void MyVisitor::emitCast(const std::string& reg, ast::BuiltInType fromType, ast::BuiltInType toType) {
+        if (fromType == toType) return;
+
+        if (fromType == ast::BuiltInType::BYTE && toType == ast::BuiltInType::INT) {
+            std::string newReg = buffer.freshVar();
+            buffer.emit(newReg + " = zext i8 " + reg + " to i32");
+            lastReg = newReg;
+            last_type = ast::BuiltInType::INT;
+        } else if (fromType == ast::BuiltInType::INT && toType == ast::BuiltInType::BYTE) {
+            std::string newReg = buffer.freshVar();
+            buffer.emit(newReg + " = trunc i32 " + reg + " to i8");
+            lastReg = newReg;
+            last_type = ast::BuiltInType::BYTE;
+        }
+    }
 
     void MyVisitor::visit(ast::Num &node) {
         lastReg = buffer.freshVar();
@@ -240,8 +241,7 @@ namespace output {
         std::string globalVar = buffer.emitString(node.value);
         lastReg = buffer.freshVar();
         last_type = ast::BuiltInType::STRING;
-        // Get pointer to start of string
-        buffer.emit(lastReg + " = getelementptr [" + std::to_string(node.value.length() + 1) + " x i8], [" 
+        buffer.emit(lastReg + " = getelementptr [" + std::to_string(node.value.length() + 1) + " x i8], ["
                     + std::to_string(node.value.length() + 1) + " x i8]* " + globalVar + ", i32 0, i32 0");
     }
 
@@ -257,7 +257,7 @@ namespace output {
         if (sym->isFunction) errorDefAsFunc(node.line, node.value);
 
         std::string ptr = sym->llvmVar;
-        last_type = sym->type; // Set type for parents
+        last_type = sym->type;
         std::string typeStr = getTypeStr(sym->type);
         lastReg = buffer.freshVar();
         buffer.emit(lastReg + " = load " + typeStr + ", " + typeStr + "* " + ptr);
@@ -267,80 +267,107 @@ namespace output {
         node.left->accept(*this);
         std::string leftReg = lastReg;
         ast::BuiltInType leftType = last_type;
-        
+
         node.right->accept(*this);
         std::string rightReg = lastReg;
         ast::BuiltInType rightType = last_type;
 
+        // Determine common type (promote to INT if needed)
+        ast::BuiltInType commonType = ast::BuiltInType::BYTE;
+        if (leftType == ast::BuiltInType::INT || rightType == ast::BuiltInType::INT) {
+            commonType = ast::BuiltInType::INT;
+        }
+
+        // Cast Left
+        if (leftType != commonType) {
+            if (leftType == ast::BuiltInType::BYTE && commonType == ast::BuiltInType::INT) {
+                std::string newReg = buffer.freshVar();
+                buffer.emit(newReg + " = zext i8 " + leftReg + " to i32");
+                leftReg = newReg;
+            }
+        }
+
+        // Cast Right
+        if (rightType != commonType) {
+            if (rightType == ast::BuiltInType::BYTE && commonType == ast::BuiltInType::INT) {
+                std::string newReg = buffer.freshVar();
+                buffer.emit(newReg + " = zext i8 " + rightReg + " to i32");
+                rightReg = newReg;
+            }
+        }
+
+        std::string typeStr = (commonType == ast::BuiltInType::INT) ? "i32" : "i8";
+
         // Check for division by zero
         if (node.op == ast::BinOpType::DIV) {
-            std::string typeStr = (leftType == ast::BuiltInType::INT) ? "i32" : "i8";
             std::string checkReg = buffer.freshVar();
             buffer.emit(checkReg + " = icmp eq " + typeStr + " " + rightReg + ", 0");
-            
+
             std::string okLabel = buffer.freshLabel();
             std::string errorLabel = buffer.freshLabel();
-            
+
             buffer.emit("br i1 " + checkReg + ", label %" + errorLabel + ", label %" + okLabel);
-            
+
             buffer.emitLabel(errorLabel);
             buffer.emit("call void @print(i8* getelementptr ([23 x i8], [23 x i8]* @.str_div_err, i32 0, i32 0))");
             buffer.emit("call void @exit(i32 0)");
             buffer.emit("unreachable");
-            
+
             buffer.emitLabel(okLabel);
         }
 
         std::string opCmd;
-        std::string typeStr = "i32"; // Default for int
-        if (leftType == ast::BuiltInType::BYTE) typeStr = "i8";
-
         switch (node.op) {
             case ast::BinOpType::ADD: opCmd = "add"; break;
             case ast::BinOpType::SUB: opCmd = "sub"; break;
             case ast::BinOpType::MUL: opCmd = "mul"; break;
-            case ast::BinOpType::DIV: 
-                opCmd = (typeStr == "i32") ? "sdiv" : "udiv"; 
+            case ast::BinOpType::DIV:
+                opCmd = (commonType == ast::BuiltInType::INT) ? "sdiv" : "udiv";
                 break;
         }
 
         lastReg = buffer.freshVar();
         buffer.emit(lastReg + " = " + opCmd + " " + typeStr + " " + leftReg + ", " + rightReg);
-
-        // Result type propogation
-        last_type = leftType; // Basic type inference (int op int -> int, byte op byte -> byte)
-        
-        // Byte truncation or mixed type handling if necessary
-        if (typeStr == "i8" && node.type == ast::BuiltInType::INT) {
-             // Note: In strict Aviri AST, Exp has 'type' enum member, not node.type.type
-             // But we are using last_type to track.
-             // If we needed to cast up:
-             // std::string oldReg = lastReg;
-             // lastReg = buffer.freshVar();
-             // buffer.emit(lastReg + " = zext i8 " + oldReg + " to i32");
-             // last_type = ast::BuiltInType::INT;
-        }
+        last_type = commonType;
     }
 
     void MyVisitor::visit(ast::RelOp &node) {
         node.left->accept(*this);
         std::string leftReg = lastReg;
         ast::BuiltInType leftType = last_type;
-        
+
         node.right->accept(*this);
         std::string rightReg = lastReg;
-        
-        std::string typeStr = "i32";
-        if (leftType == ast::BuiltInType::BYTE) typeStr = "i8";
+        ast::BuiltInType rightType = last_type;
 
+        // Determine common type for comparison
+        ast::BuiltInType commonType = ast::BuiltInType::BYTE;
+        if (leftType == ast::BuiltInType::INT || rightType == ast::BuiltInType::INT) {
+            commonType = ast::BuiltInType::INT;
+        }
+
+        // Cast Left
+        if (leftType != commonType) {
+            std::string newReg = buffer.freshVar();
+            buffer.emit(newReg + " = zext i8 " + leftReg + " to i32");
+            leftReg = newReg;
+        }
+        // Cast Right
+        if (rightType != commonType) {
+            std::string newReg = buffer.freshVar();
+            buffer.emit(newReg + " = zext i8 " + rightReg + " to i32");
+            rightReg = newReg;
+        }
+
+        std::string typeStr = (commonType == ast::BuiltInType::INT) ? "i32" : "i8";
         std::string cmpMode;
         switch (node.op) {
             case ast::RelOpType::EQ: cmpMode = "eq"; break;
             case ast::RelOpType::NE: cmpMode = "ne"; break;
-            case ast::RelOpType::LT: cmpMode = (typeStr == "i32" ? "slt" : "ult"); break;
-            case ast::RelOpType::GT: cmpMode = (typeStr == "i32" ? "sgt" : "ugt"); break;
-            case ast::RelOpType::LE: cmpMode = (typeStr == "i32" ? "sle" : "ule"); break;
-            case ast::RelOpType::GE: cmpMode = (typeStr == "i32" ? "sge" : "uge"); break;
+            case ast::RelOpType::LT: cmpMode = (commonType == ast::BuiltInType::INT ? "slt" : "ult"); break;
+            case ast::RelOpType::GT: cmpMode = (commonType == ast::BuiltInType::INT ? "sgt" : "ugt"); break;
+            case ast::RelOpType::LE: cmpMode = (commonType == ast::BuiltInType::INT ? "sle" : "ule"); break;
+            case ast::RelOpType::GE: cmpMode = (commonType == ast::BuiltInType::INT ? "sge" : "uge"); break;
         }
 
         lastReg = buffer.freshVar();
@@ -357,25 +384,22 @@ namespace output {
     }
 
     void MyVisitor::visit(ast::And &node) {
-        // Short circuit evaluation
         node.left->accept(*this);
         std::string leftReg = lastReg;
-        std::string leftLabel = buffer.freshLabel(); 
         std::string checkRightLabel = buffer.freshLabel();
         std::string endLabel = buffer.freshLabel();
-        
-        // Stack pointer for result
+
         std::string resPtr = buffer.freshVar();
         buffer.emit(resPtr + " = alloca i1");
-        buffer.emit("store i1 0, i1* " + resPtr); // Default false
-        
+        buffer.emit("store i1 0, i1* " + resPtr);
+
         buffer.emit("br i1 " + leftReg + ", label %" + checkRightLabel + ", label %" + endLabel);
-        
+
         buffer.emitLabel(checkRightLabel);
         node.right->accept(*this);
         buffer.emit("store i1 " + lastReg + ", i1* " + resPtr);
         buffer.emit("br label %" + endLabel);
-        
+
         buffer.emitLabel(endLabel);
         lastReg = buffer.freshVar();
         last_type = ast::BuiltInType::BOOL;
@@ -385,21 +409,21 @@ namespace output {
     void MyVisitor::visit(ast::Or &node) {
         std::string resPtr = buffer.freshVar();
         buffer.emit(resPtr + " = alloca i1");
-        buffer.emit("store i1 1, i1* " + resPtr); // Default true
-        
+        buffer.emit("store i1 1, i1* " + resPtr);
+
         node.left->accept(*this);
         std::string leftReg = lastReg;
-        
+
         std::string checkRightLabel = buffer.freshLabel();
         std::string endLabel = buffer.freshLabel();
-        
+
         buffer.emit("br i1 " + leftReg + ", label %" + endLabel + ", label %" + checkRightLabel);
-        
+
         buffer.emitLabel(checkRightLabel);
         node.right->accept(*this);
         buffer.emit("store i1 " + lastReg + ", i1* " + resPtr);
         buffer.emit("br label %" + endLabel);
-        
+
         buffer.emitLabel(endLabel);
         lastReg = buffer.freshVar();
         last_type = ast::BuiltInType::BOOL;
@@ -407,34 +431,14 @@ namespace output {
     }
 
     void MyVisitor::visit(ast::Type &node) {
-        // Nothing to emit
     }
 
     void MyVisitor::visit(ast::Cast &node) {
         node.exp->accept(*this);
-        ast::BuiltInType expType = last_type;
-        // target_type is a Type node, so it has a 'type' enum field.
-        
-        if (node.target_type->type == ast::BuiltInType::INT && expType == ast::BuiltInType::BYTE) {
-            std::string oldReg = lastReg;
-            lastReg = buffer.freshVar();
-            last_type = ast::BuiltInType::INT;
-            buffer.emit(lastReg + " = zext i8 " + oldReg + " to i32");
-        }
-        else if (node.target_type->type == ast::BuiltInType::BYTE && expType == ast::BuiltInType::INT) {
-            std::string oldReg = lastReg;
-            lastReg = buffer.freshVar();
-            last_type = ast::BuiltInType::BYTE;
-            buffer.emit(lastReg + " = trunc i32 " + oldReg + " to i8");
-        }
-        else {
-             // If types are same or other cast, just propagate
-             last_type = node.target_type->type;
-        }
+        emitCast(lastReg, last_type, node.target_type->type);
     }
 
     void MyVisitor::visit(ast::ExpList &node) {
-        // Evaluated in Call
     }
 
     void MyVisitor::visit(ast::Call &node) {
@@ -444,7 +448,6 @@ namespace output {
         std::vector<std::string> argRegs;
         std::vector<ast::BuiltInType> argTypes;
 
-        // 1. Evaluate args
         for (auto &exp : node.args->exps) {
             exp->accept(*this);
             argRegs.push_back(lastReg);
@@ -453,23 +456,28 @@ namespace output {
 
         std::string callStr = "call " + getTypeStr(sym->retType) + " @" + funcName + "(";
 
-        // 2. Build arguments with casting
         for (size_t i = 0; i < argRegs.size(); ++i) {
             std::string reg = argRegs[i];
+            ast::BuiltInType expected = sym->paramTypes[i];
 
-            // Fix: Cast Byte to Int if the function expects Int
-            if (argTypes[i] == ast::BuiltInType::BYTE && sym->paramTypes[i] == ast::BuiltInType::INT) {
-                std::string newReg = buffer.freshVar();
-                buffer.emit(newReg + " = zext i8 " + reg + " to i32");
-                reg = newReg;
+            // Cast argument if necessary
+            if (argTypes[i] != expected) {
+                if (argTypes[i] == ast::BuiltInType::BYTE && expected == ast::BuiltInType::INT) {
+                    std::string newReg = buffer.freshVar();
+                    buffer.emit(newReg + " = zext i8 " + reg + " to i32");
+                    reg = newReg;
+                } else if (argTypes[i] == ast::BuiltInType::INT && expected == ast::BuiltInType::BYTE) {
+                    std::string newReg = buffer.freshVar();
+                    buffer.emit(newReg + " = trunc i32 " + reg + " to i8");
+                    reg = newReg;
+                }
             }
 
-            callStr += getTypeStr(sym->paramTypes[i]) + " " + reg;
+            callStr += getTypeStr(expected) + " " + reg;
             if (i < argRegs.size() - 1) callStr += ", ";
         }
         callStr += ")";
 
-        // 3. Emit Call
         if (sym->retType == ast::BuiltInType::VOID) {
             buffer.emit(callStr);
             lastReg = "0";
@@ -485,7 +493,6 @@ namespace output {
         symbolTable.pushScope();
         for (auto &stmt : node.statements) {
             stmt->accept(*this);
-            // If a statement (like return/break) terminated the block, stop processing
             if (blockTerminated) break;
         }
         symbolTable.popScope();
@@ -506,6 +513,7 @@ namespace output {
     void MyVisitor::visit(ast::Return &node) {
         if (node.exp) {
             node.exp->accept(*this);
+            emitCast(lastReg, last_type, currentFuncRetType);
             buffer.emit("ret " + getTypeStr(currentFuncRetType) + " " + lastReg);
         } else {
             buffer.emit("ret void");
@@ -524,27 +532,24 @@ namespace output {
 
         buffer.emit("br i1 " + condReg + ", label %" + thenLabel + ", label %" + elseLabel);
 
-        // THEN Block
         buffer.emitLabel(thenLabel);
-        blockTerminated = false; // Reset for new block
+        blockTerminated = false;
         node.then->accept(*this);
-        if (!blockTerminated) {  // Only branch if not already returned
+        if (!blockTerminated) {
             buffer.emit("br label %" + endLabel);
         }
 
-        // ELSE Block
         buffer.emitLabel(elseLabel);
-        blockTerminated = false; // Reset for new block
+        blockTerminated = false;
         if (node.otherwise) {
             node.otherwise->accept(*this);
         }
-        if (!blockTerminated) {  // Only branch if not already returned
+        if (!blockTerminated) {
             buffer.emit("br label %" + endLabel);
         }
 
-        // END Block
         buffer.emitLabel(endLabel);
-        blockTerminated = false; // Reset for subsequent code
+        blockTerminated = false;
         symbolTable.popScope();
     }
 
@@ -584,14 +589,14 @@ namespace output {
         std::string typeStr = getTypeStr(node.type->type);
         std::string ptrVar = buffer.freshVar();
         buffer.emit(ptrVar + " = alloca " + typeStr);
-        
+
         symbolTable.insertVar(node.id->value, node.type->type, ptrVar);
-        
+
         if (node.init_exp) {
             node.init_exp->accept(*this);
+            emitCast(lastReg, last_type, node.type->type);
             buffer.emit("store " + typeStr + " " + lastReg + ", " + typeStr + "* " + ptrVar);
         } else {
-            // Initialize to 0
             buffer.emit("store " + typeStr + " " + getZeroValue(node.type->type) + ", " + typeStr + "* " + ptrVar);
         }
     }
@@ -599,18 +604,18 @@ namespace output {
     void MyVisitor::visit(ast::Assign &node) {
         Symbol* sym = symbolTable.getSymbol(node.id->value);
         if (!sym) errorUndef(node.line, node.id->value);
-        
+
         node.exp->accept(*this);
+        emitCast(lastReg, last_type, sym->type);
+
         std::string typeStr = getTypeStr(sym->type);
         buffer.emit("store " + typeStr + " " + lastReg + ", " + typeStr + "* " + sym->llvmVar);
     }
 
     void MyVisitor::visit(ast::Formal &node) {
-        // Handled in FuncDecl
     }
 
     void MyVisitor::visit(ast::Formals &node) {
-        // Handled in FuncDecl
     }
 
     void MyVisitor::visit(ast::FuncDecl &node) {
@@ -632,7 +637,7 @@ namespace output {
             if (i < paramTypes.size() - 1) sig += ", ";
         }
         sig += ") {";
-        buffer.emit(sig); // Emitted to main buffer
+        buffer.emit(sig);
 
         buffer.emit("entry:");
 
@@ -652,7 +657,6 @@ namespace output {
 
         node.body->accept(*this);
 
-        // FIX: Only emit default return if the block is NOT terminated
         if (!blockTerminated) {
             buffer.emit("ret " + (currentFuncRetType == ast::BuiltInType::VOID ? "void" : getTypeStr(currentFuncRetType) + " 0"));
         }
@@ -669,7 +673,7 @@ namespace output {
         for (auto &func : node.funcs) {
             func->accept(*this);
         }
-        
+
         if (!symbolTable.contains("main")) errorMainMissing();
     }
 

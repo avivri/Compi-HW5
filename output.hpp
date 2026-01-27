@@ -117,6 +117,7 @@ namespace output {
         std::string getTypeStr(ast::BuiltInType type);
         std::string getZeroValue(ast::BuiltInType type);
         void emitPrintFunctions();
+        void emitCast(const std::string& reg, ast::BuiltInType fromType, ast::BuiltInType toType); // Add this line
 
     public:
         MyVisitor();
