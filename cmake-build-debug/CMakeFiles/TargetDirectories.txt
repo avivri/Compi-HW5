@@ -1,0 +1,3 @@
+/mnt/c/Users/bibal/OneDrive - Technion/Year_3/Semester_5/Compilation/Compi-HW3/cmake-build-debug/CMakeFiles/hw3.dir
+/mnt/c/Users/bibal/OneDrive - Technion/Year_3/Semester_5/Compilation/Compi-HW3/cmake-build-debug/CMakeFiles/edit_cache.dir
+/mnt/c/Users/bibal/OneDrive - Technion/Year_3/Semester_5/Compilation/Compi-HW3/cmake-build-debug/CMakeFiles/rebuild_cache.dir
