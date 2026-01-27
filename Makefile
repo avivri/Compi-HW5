@@ -6,6 +6,6 @@ CFLAGS = -std=c++17
 all: clean
 	flex scanner.lex
 	bison -Wcounterexamples -d parser.y
-	$(CC) $(CFLAGS) -o hw3 *.c *.cpp
+	$(CC) $(CFLAGS) -o hw5 *.c *.cpp
 clean:
-	rm -f lex.yy.* parser.tab.* hw3
+	rm -f lex.yy.* parser.tab.* hw5
