@@ -442,36 +442,34 @@ namespace output {
         Symbol* sym = symbolTable.getSymbol(funcName);
 
         std::vector<std::string> argRegs;
-        std::vector<ast::BuiltInType> argTypes; // We must track argument types
+        std::vector<ast::BuiltInType> argTypes;
 
-        // 1. Evaluate arguments
+        // 1. Evaluate args
         for (auto &exp : node.args->exps) {
             exp->accept(*this);
             argRegs.push_back(lastReg);
-            argTypes.push_back(last_type); // Capture the type
+            argTypes.push_back(last_type);
         }
 
-        // 2. Build call string with casting
         std::string callStr = "call " + getTypeStr(sym->retType) + " @" + funcName + "(";
 
+        // 2. Build arguments with casting
         for (size_t i = 0; i < argRegs.size(); ++i) {
             std::string reg = argRegs[i];
-            ast::BuiltInType argType = argTypes[i];
-            ast::BuiltInType paramType = sym->paramTypes[i];
 
-            // Fix: Explicitly cast Byte to Int if required
-            if (argType == ast::BuiltInType::BYTE && paramType == ast::BuiltInType::INT) {
+            // Fix: Cast Byte to Int if the function expects Int
+            if (argTypes[i] == ast::BuiltInType::BYTE && sym->paramTypes[i] == ast::BuiltInType::INT) {
                 std::string newReg = buffer.freshVar();
                 buffer.emit(newReg + " = zext i8 " + reg + " to i32");
                 reg = newReg;
             }
 
-            callStr += getTypeStr(paramType) + " " + reg;
+            callStr += getTypeStr(sym->paramTypes[i]) + " " + reg;
             if (i < argRegs.size() - 1) callStr += ", ";
         }
         callStr += ")";
 
-        // 3. Emit call
+        // 3. Emit Call
         if (sym->retType == ast::BuiltInType::VOID) {
             buffer.emit(callStr);
             lastReg = "0";
@@ -487,6 +485,8 @@ namespace output {
         symbolTable.pushScope();
         for (auto &stmt : node.statements) {
             stmt->accept(*this);
+            // If a statement (like return/break) terminated the block, stop processing
+            if (blockTerminated) break;
         }
         symbolTable.popScope();
     }
@@ -528,7 +528,7 @@ namespace output {
         buffer.emitLabel(thenLabel);
         blockTerminated = false; // Reset for new block
         node.then->accept(*this);
-        if (!blockTerminated) {  // Only emit branch if NOT terminated
+        if (!blockTerminated) {  // Only branch if not already returned
             buffer.emit("br label %" + endLabel);
         }
 
@@ -538,13 +538,13 @@ namespace output {
         if (node.otherwise) {
             node.otherwise->accept(*this);
         }
-        if (!blockTerminated) {  // Only emit branch if NOT terminated
+        if (!blockTerminated) {  // Only branch if not already returned
             buffer.emit("br label %" + endLabel);
         }
 
         // END Block
         buffer.emitLabel(endLabel);
-        blockTerminated = false; // Reset for flow continuation
+        blockTerminated = false; // Reset for subsequent code
         symbolTable.popScope();
     }
 
@@ -559,22 +559,22 @@ namespace output {
         buffer.emit("br label %" + condLabel);
 
         buffer.emitLabel(condLabel);
-        blockTerminated = false; // Reset
+        blockTerminated = false;
         node.condition->accept(*this);
         buffer.emit("br i1 " + lastReg + ", label %" + bodyLabel + ", label %" + endLabel);
 
         buffer.emitLabel(bodyLabel);
-        blockTerminated = false; // Reset
+        blockTerminated = false;
         symbolTable.pushScope();
         node.body->accept(*this);
         symbolTable.popScope();
 
-        if (!blockTerminated) { // Only loop back if NOT terminated
+        if (!blockTerminated) {
             buffer.emit("br label %" + condLabel);
         }
 
         buffer.emitLabel(endLabel);
-        blockTerminated = false; // Reset
+        blockTerminated = false;
 
         loopContinueLabels.pop();
         loopBreakLabels.pop();
@@ -614,50 +614,52 @@ namespace output {
     }
 
     void MyVisitor::visit(ast::FuncDecl &node) {
-        symbolTable.pushScope(); // Function scope
-        
+        symbolTable.pushScope();
+
         std::string funcName = node.id->value;
         currentFuncRetType = node.return_type->type;
         currentFuncEndLabel = buffer.freshLabel();
-        
+
         std::string sig = "define " + getTypeStr(currentFuncRetType) + " @" + funcName + "(";
-        
+
         std::vector<ast::BuiltInType> paramTypes;
-        
         for (auto &formal : node.formals->formals) {
             paramTypes.push_back(formal->type->type);
         }
-        
+
         for (size_t i = 0; i < paramTypes.size(); ++i) {
             sig += getTypeStr(paramTypes[i]);
             if (i < paramTypes.size() - 1) sig += ", ";
         }
         sig += ") {";
-        buffer.emit(sig);
-        
+        buffer.emit(sig); // Emitted to main buffer
+
         buffer.emit("entry:");
-        
-        // Insert func to global table manually (hack for single pass visitor)
-        symbolTable.popScope(); 
+
+        symbolTable.popScope();
         symbolTable.insertFunc(funcName, currentFuncRetType, paramTypes);
-        symbolTable.pushScope(); 
-        
+        symbolTable.pushScope();
+
         int argCounter = 0;
         for (auto &formal : node.formals->formals) {
             std::string typeStr = getTypeStr(formal->type->type);
             std::string ptrVar = buffer.freshVar();
             buffer.emit(ptrVar + " = alloca " + typeStr);
             buffer.emit("store " + typeStr + " %" + std::to_string(argCounter++) + ", " + typeStr + "* " + ptrVar);
-            
+
             symbolTable.insertVar(formal->id->value, formal->type->type, ptrVar);
         }
-        
+
         node.body->accept(*this);
-        
-        buffer.emit("ret " + (currentFuncRetType == ast::BuiltInType::VOID ? "void" : getTypeStr(currentFuncRetType) + " 0"));
+
+        // FIX: Only emit default return if the block is NOT terminated
+        if (!blockTerminated) {
+            buffer.emit("ret " + (currentFuncRetType == ast::BuiltInType::VOID ? "void" : getTypeStr(currentFuncRetType) + " 0"));
+        }
+
         buffer.emit("}");
         buffer.emit("");
-        
+
         symbolTable.popScope();
     }
 
