@@ -108,7 +108,10 @@ namespace output {
         ast::BuiltInType currentFuncRetType;
         
         // Used to pass register names up the tree
-        std::string lastReg; 
+        std::string lastReg;
+
+        ast::BuiltInType last_type;
+        bool blockTerminated = false;
 
         // Helper methods
         std::string getTypeStr(ast::BuiltInType type);

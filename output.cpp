@@ -172,7 +172,7 @@ namespace output {
 
     // --- MyVisitor Implementation ---
 
-    MyVisitor::MyVisitor() {
+    MyVisitor::MyVisitor() : blockTerminated(false) {
         // Emit required external declarations
         buffer.emitGlobal("declare i32 @printf(i8*, ...)");
         buffer.emitGlobal("declare void @exit(i32)");
@@ -311,7 +311,7 @@ namespace output {
         last_type = leftType; // Basic type inference (int op int -> int, byte op byte -> byte)
         
         // Byte truncation or mixed type handling if necessary
-        if (typeStr == "i8" && node.type.type == ast::BuiltInType::INT) { 
+        if (typeStr == "i8" && node.type == ast::BuiltInType::INT) {
              // Note: In strict Aviri AST, Exp has 'type' enum member, not node.type.type
              // But we are using last_type to track.
              // If we needed to cast up:
@@ -479,11 +479,13 @@ namespace output {
     void MyVisitor::visit(ast::Break &node) {
         if (loopBreakLabels.empty()) errorUnexpectedBreak(node.line);
         buffer.emit("br label %" + loopBreakLabels.top());
+        blockTerminated = true;
     }
 
     void MyVisitor::visit(ast::Continue &node) {
         if (loopContinueLabels.empty()) errorUnexpectedContinue(node.line);
         buffer.emit("br label %" + loopContinueLabels.top());
+        blockTerminated = true;
     }
 
     void MyVisitor::visit(ast::Return &node) {
@@ -493,30 +495,41 @@ namespace output {
         } else {
             buffer.emit("ret void");
         }
+        blockTerminated = true;
     }
 
     void MyVisitor::visit(ast::If &node) {
         symbolTable.pushScope();
         node.condition->accept(*this);
         std::string condReg = lastReg;
-        
+
         std::string thenLabel = buffer.freshLabel();
         std::string elseLabel = buffer.freshLabel();
         std::string endLabel = buffer.freshLabel();
-        
+
         buffer.emit("br i1 " + condReg + ", label %" + thenLabel + ", label %" + elseLabel);
-        
+
+        // THEN Block
         buffer.emitLabel(thenLabel);
+        blockTerminated = false; // Reset for new block
         node.then->accept(*this);
-        buffer.emit("br label %" + endLabel);
-        
+        if (!blockTerminated) {  // Only emit branch if NOT terminated
+            buffer.emit("br label %" + endLabel);
+        }
+
+        // ELSE Block
         buffer.emitLabel(elseLabel);
+        blockTerminated = false; // Reset for new block
         if (node.otherwise) {
             node.otherwise->accept(*this);
         }
-        buffer.emit("br label %" + endLabel);
-        
+        if (!blockTerminated) {  // Only emit branch if NOT terminated
+            buffer.emit("br label %" + endLabel);
+        }
+
+        // END Block
         buffer.emitLabel(endLabel);
+        blockTerminated = false; // Reset for new block
         symbolTable.popScope();
     }
 
@@ -524,24 +537,30 @@ namespace output {
         std::string condLabel = buffer.freshLabel();
         std::string bodyLabel = buffer.freshLabel();
         std::string endLabel = buffer.freshLabel();
-        
+
         loopContinueLabels.push(condLabel);
         loopBreakLabels.push(endLabel);
-        
+
         buffer.emit("br label %" + condLabel);
-        
+
         buffer.emitLabel(condLabel);
+        blockTerminated = false; // Reset
         node.condition->accept(*this);
         buffer.emit("br i1 " + lastReg + ", label %" + bodyLabel + ", label %" + endLabel);
-        
+
         buffer.emitLabel(bodyLabel);
-        symbolTable.pushScope(); // Loop scope
+        blockTerminated = false; // Reset
+        symbolTable.pushScope();
         node.body->accept(*this);
         symbolTable.popScope();
-        buffer.emit("br label %" + condLabel);
-        
+
+        if (!blockTerminated) { // Only loop back if NOT terminated
+            buffer.emit("br label %" + condLabel);
+        }
+
         buffer.emitLabel(endLabel);
-        
+        blockTerminated = false; // Reset
+
         loopContinueLabels.pop();
         loopBreakLabels.pop();
     }
@@ -599,7 +618,7 @@ namespace output {
             if (i < paramTypes.size() - 1) sig += ", ";
         }
         sig += ") {";
-        buffer.emitGlobal(sig);
+        buffer.emit(sig);
         
         buffer.emit("entry:");
         
@@ -622,7 +641,7 @@ namespace output {
         
         buffer.emit("ret " + (currentFuncRetType == ast::BuiltInType::VOID ? "void" : getTypeStr(currentFuncRetType) + " 0"));
         buffer.emit("}");
-        buffer.emitGlobal(""); 
+        buffer.emit("");
         
         symbolTable.popScope();
     }
