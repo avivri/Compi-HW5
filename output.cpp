@@ -440,26 +440,41 @@ namespace output {
     void MyVisitor::visit(ast::Call &node) {
         std::string funcName = node.func_id->value;
         Symbol* sym = symbolTable.getSymbol(funcName);
-        
+
         std::vector<std::string> argRegs;
-        
-        // Evaluate args left to right
+        std::vector<ast::BuiltInType> argTypes; // We must track argument types
+
+        // 1. Evaluate arguments
         for (auto &exp : node.args->exps) {
             exp->accept(*this);
             argRegs.push_back(lastReg);
+            argTypes.push_back(last_type); // Capture the type
         }
-        
+
+        // 2. Build call string with casting
         std::string callStr = "call " + getTypeStr(sym->retType) + " @" + funcName + "(";
+
         for (size_t i = 0; i < argRegs.size(); ++i) {
-            std::string typeStr = getTypeStr(sym->paramTypes[i]);
-            callStr += typeStr + " " + argRegs[i];
+            std::string reg = argRegs[i];
+            ast::BuiltInType argType = argTypes[i];
+            ast::BuiltInType paramType = sym->paramTypes[i];
+
+            // Fix: Explicitly cast Byte to Int if required
+            if (argType == ast::BuiltInType::BYTE && paramType == ast::BuiltInType::INT) {
+                std::string newReg = buffer.freshVar();
+                buffer.emit(newReg + " = zext i8 " + reg + " to i32");
+                reg = newReg;
+            }
+
+            callStr += getTypeStr(paramType) + " " + reg;
             if (i < argRegs.size() - 1) callStr += ", ";
         }
         callStr += ")";
-        
+
+        // 3. Emit call
         if (sym->retType == ast::BuiltInType::VOID) {
             buffer.emit(callStr);
-            lastReg = "0"; 
+            lastReg = "0";
             last_type = ast::BuiltInType::VOID;
         } else {
             lastReg = buffer.freshVar();
@@ -529,7 +544,7 @@ namespace output {
 
         // END Block
         buffer.emitLabel(endLabel);
-        blockTerminated = false; // Reset for new block
+        blockTerminated = false; // Reset for flow continuation
         symbolTable.popScope();
     }
 
