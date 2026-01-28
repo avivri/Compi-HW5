@@ -1,4 +1,15 @@
-/usr/bin/lli: lli: /mnt/c/Users/yairy/OneDrive - Technion/Technion/Semester E/CompilationIntro/Compi-HW5/test_build/t14-func-short-circuits.ll:31:3: error: expected instruction opcode
-  }
-  ^
-
+f1.
+f2.
+f1.
+f2.
+f1.
+f2.
+f2.
+f2.
+f1.
+f1.
+2
+f1.
+f2.
+3
+f2.

@@ -19,29 +19,32 @@ define void @print(i8*) {
   entry:
   br label %label_2
 label_2:
-  %t1 = add i1 0, 0
-  br i1 %t1, label %label_3, label %label_4
+  %t1 = add i32 0, 0
+  %t2 = icmp ne i32 %t1, 0
+  br i1 %t2, label %label_3, label %label_4
 label_3:
-  %t2 = getelementptr [29 x i8], [29 x i8]* @.str1, i32 0, i32 0
-  call void @print(i8* %t2)
+  %t3 = getelementptr [29 x i8], [29 x i8]* @.str1, i32 0, i32 0
+  call void @print(i8* %t3)
   br label %label_2
 label_4:
-  %t3 = alloca i32
-  %t4 = add i32 0, 0
-  store i32 %t4, i32* %t3
+  %t4 = alloca i32
+  %t5 = add i32 0, 0
+  store i32 %t5, i32* %t4
   br label %label_5
 label_5:
-  %t5 = load i32, i32* %t3
-  %t6 = add i32 10, 0
-  %t7 = icmp slt i32 %t5, %t6
-  br i1 %t7, label %label_6, label %label_7
+  %t6 = load i32, i32* %t4
+  %t7 = add i32 10, 0
+  %t8 = icmp slt i32 %t6, %t7
+  %t9 = zext i1 %t8 to i32
+  %t10 = icmp ne i32 %t9, 0
+  br i1 %t10, label %label_6, label %label_7
 label_6:
-  %t8 = load i32, i32* %t3
-  call void @printi(i32 %t8)
-  %t9 = load i32, i32* %t3
-  %t10 = add i32 1, 0
-  %t11 = add i32 %t9, %t10
-  store i32 %t11, i32* %t3
+  %t11 = load i32, i32* %t4
+  call void @printi(i32 %t11)
+  %t12 = load i32, i32* %t4
+  %t13 = add i32 1, 0
+  %t14 = add i32 %t12, %t13
+  store i32 %t14, i32* %t4
   br label %label_5
 label_7:
   ret void

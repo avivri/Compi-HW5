@@ -1,4 +1,20 @@
-/usr/bin/lli: lli: /mnt/c/Users/yairy/OneDrive - Technion/Technion/Semester E/CompilationIntro/Compi-HW5/test_build/t02.ll:61:3: error: expected instruction opcode
-  }
-  ^
-
+1
+*
+1
+*
+2
+*
+3
+*
+5
+*
+8
+*
+13
+*
+21
+*
+34
+*
+55
+*

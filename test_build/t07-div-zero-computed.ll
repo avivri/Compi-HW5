@@ -14,27 +14,31 @@ define void @print(i8*) {
 }
 @.str_div_err = constant [23 x i8] c"Error division by zero\00"
 
-  define i8 @foo() {
+  define i32 @foo() {
   entry:
-  %t1 = add i8 2, 0
-  ret i8 %t1
+  %t1 = add i32 2, 0
+  ret i32 %t1
+label_2:
+  ret i32 0
   }
   
   define void @main() {
   entry:
-  %t2 = add i8 100, 0
-  %t3 = call i8 @foo()
-  %t4 = call i8 @foo()
-  %t5 = sub i8 %t3, %t4
-  %t6 = icmp eq i8 %t5, 0
-  br i1 %t6, label %label_4, label %label_3
-label_4:
+  %t2 = add i32 100, 0
+  %t3 = call i32 @foo()
+  %t4 = call i32 @foo()
+  %t5 = sub i32 %t3, %t4
+  %t6 = and i32 %t5, 255
+  %t7 = icmp eq i32 %t6, 0
+  br i1 %t7, label %label_5, label %label_4
+label_5:
   call void @print(i8* getelementptr ([23 x i8], [23 x i8]* @.str_div_err, i32 0, i32 0))
   call void @exit(i32 0)
   unreachable
-label_3:
-  %t7 = udiv i8 %t2, %t5
-  %t8 = zext i8 %t7 to i32
-  call void @printi(i32 %t8)
+label_4:
+  %t8 = udiv i32 %t2, %t6
+  %t9 = and i32 %t8, 255
+  call void @printi(i32 %t9)
+  ret void
   }
   

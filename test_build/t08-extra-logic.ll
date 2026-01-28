@@ -24,119 +24,129 @@ define void @print(i8*) {
   define void @main() {
   entry:
   %t1 = add i32 100, 0
-  %t2 = add i8 100, 0
-  %t3 = zext i8 %t2 to i32
-  %t4 = icmp eq i32 %t1, %t3
-  br i1 %t4, label %label_2, label %label_3
+  %t2 = add i32 100, 0
+  %t3 = icmp eq i32 %t1, %t2
+  %t4 = zext i1 %t3 to i32
+  %t5 = icmp ne i32 %t4, 0
+  br i1 %t5, label %label_2, label %label_3
 label_2:
-  %t5 = getelementptr [7 x i8], [7 x i8]* @.str1, i32 0, i32 0
-  call void @print(i8* %t5)
-  br label %label_4
-label_3:
-  %t6 = getelementptr [17 x i8], [17 x i8]* @.str2, i32 0, i32 0
+  %t6 = getelementptr [7 x i8], [7 x i8]* @.str1, i32 0, i32 0
   call void @print(i8* %t6)
   br label %label_4
+label_3:
+  %t7 = getelementptr [17 x i8], [17 x i8]* @.str2, i32 0, i32 0
+  call void @print(i8* %t7)
+  br label %label_4
 label_4:
-  %t7 = add i32 5, 0
-  %t8 = add i8 6, 0
-  %t9 = zext i8 %t8 to i32
-  %t10 = icmp slt i32 %t7, %t9
-  br i1 %t10, label %label_5, label %label_6
+  %t8 = add i32 5, 0
+  %t9 = add i32 6, 0
+  %t10 = icmp slt i32 %t8, %t9
+  %t11 = zext i1 %t10 to i32
+  %t12 = icmp ne i32 %t11, 0
+  br i1 %t12, label %label_5, label %label_6
 label_5:
-  %t11 = getelementptr [9 x i8], [9 x i8]* @.str3, i32 0, i32 0
-  call void @print(i8* %t11)
+  %t13 = getelementptr [9 x i8], [9 x i8]* @.str3, i32 0, i32 0
+  call void @print(i8* %t13)
   br label %label_7
 label_6:
-  %t12 = getelementptr [17 x i8], [17 x i8]* @.str4, i32 0, i32 0
-  call void @print(i8* %t12)
+  %t14 = getelementptr [17 x i8], [17 x i8]* @.str4, i32 0, i32 0
+  call void @print(i8* %t14)
   br label %label_7
 label_7:
-  %t13 = alloca i1
-  store i1 1, i1* %t13
-  %t14 = add i8 4, 0
-  %t15 = add i32 5, 0
-  %t16 = zext i8 %t14 to i32
-  %t17 = icmp sle i32 %t16, %t15
-  br i1 %t17, label %label_9, label %label_8
+  %t15 = alloca i32
+  store i32 1, i32* %t15
+  %t16 = add i32 4, 0
+  %t17 = add i32 5, 0
+  %t18 = icmp sle i32 %t16, %t17
+  %t19 = zext i1 %t18 to i32
+  %t20 = icmp ne i32 %t19, 0
+  br i1 %t20, label %label_9, label %label_8
 label_8:
-  %t18 = add i32 8, 0
-  %t19 = add i32 0, 0
-  %t20 = icmp eq i32 %t19, 0
-  br i1 %t20, label %label_11, label %label_10
+  %t21 = add i32 8, 0
+  %t22 = add i32 0, 0
+  %t23 = icmp eq i32 %t22, 0
+  br i1 %t23, label %label_11, label %label_10
 label_11:
   call void @print(i8* getelementptr ([23 x i8], [23 x i8]* @.str_div_err, i32 0, i32 0))
   call void @exit(i32 0)
   unreachable
 label_10:
-  %t21 = sdiv i32 %t18, %t19
-  %t22 = add i32 10, 0
-  %t23 = icmp slt i32 %t21, %t22
-  store i1 %t23, i1* %t13
+  %t24 = sdiv i32 %t21, %t22
+  %t25 = add i32 10, 0
+  %t26 = icmp slt i32 %t24, %t25
+  %t27 = zext i1 %t26 to i32
+  store i32 %t27, i32* %t15
   br label %label_9
 label_9:
-  %t24 = load i1, i1* %t13
-  br i1 %t24, label %label_12, label %label_13
+  %t28 = load i32, i32* %t15
+  %t29 = icmp ne i32 %t28, 0
+  br i1 %t29, label %label_12, label %label_13
 label_12:
-  %t25 = getelementptr [20 x i8], [20 x i8]* @.str5, i32 0, i32 0
-  call void @print(i8* %t25)
+  %t30 = getelementptr [20 x i8], [20 x i8]* @.str5, i32 0, i32 0
+  call void @print(i8* %t30)
   br label %label_14
 label_13:
   br label %label_14
 label_14:
-  %t26 = add i32 5, 0
-  %t27 = add i8 100, 0
-  %t28 = zext i8 %t27 to i32
-  %t29 = icmp sgt i32 %t26, %t28
-  %t30 = alloca i1
-  store i1 0, i1* %t30
-  br i1 %t29, label %label_15, label %label_16
+  %t31 = add i32 5, 0
+  %t32 = add i32 100, 0
+  %t33 = icmp sgt i32 %t31, %t32
+  %t34 = zext i1 %t33 to i32
+  %t35 = alloca i32
+  store i32 0, i32* %t35
+  %t36 = icmp ne i32 %t34, 0
+  br i1 %t36, label %label_15, label %label_16
 label_15:
-  %t31 = add i8 6, 0
-  %t32 = add i8 0, 0
-  %t33 = icmp eq i8 %t32, 0
-  br i1 %t33, label %label_18, label %label_17
+  %t37 = add i32 6, 0
+  %t38 = add i32 0, 0
+  %t39 = icmp eq i32 %t38, 0
+  br i1 %t39, label %label_18, label %label_17
 label_18:
   call void @print(i8* getelementptr ([23 x i8], [23 x i8]* @.str_div_err, i32 0, i32 0))
   call void @exit(i32 0)
   unreachable
 label_17:
-  %t34 = udiv i8 %t31, %t32
-  %t35 = add i32 1, 0
-  %t36 = zext i8 %t34 to i32
-  %t37 = icmp ne i32 %t36, %t35
-  store i1 %t37, i1* %t30
+  %t40 = udiv i32 %t37, %t38
+  %t41 = and i32 %t40, 255
+  %t42 = add i32 1, 0
+  %t43 = icmp ne i32 %t41, %t42
+  %t44 = zext i1 %t43 to i32
+  store i32 %t44, i32* %t35
   br label %label_16
 label_16:
-  %t38 = load i1, i1* %t30
-  br i1 %t38, label %label_19, label %label_20
+  %t45 = load i32, i32* %t35
+  %t46 = icmp ne i32 %t45, 0
+  br i1 %t46, label %label_19, label %label_20
 label_19:
-  %t39 = getelementptr [32 x i8], [32 x i8]* @.str6, i32 0, i32 0
-  call void @print(i8* %t39)
+  %t47 = getelementptr [32 x i8], [32 x i8]* @.str6, i32 0, i32 0
+  call void @print(i8* %t47)
   br label %label_21
 label_20:
   br label %label_21
 label_21:
-  %t40 = add i32 1, 0
-  %t41 = add i8 1, 0
-  %t42 = zext i8 %t41 to i32
-  %t43 = icmp ne i32 %t40, %t42
-  %t44 = xor i1 %t43, 1
-  %t45 = alloca i1
-  store i1 0, i1* %t45
-  br i1 %t44, label %label_22, label %label_23
+  %t48 = add i32 1, 0
+  %t49 = add i32 1, 0
+  %t50 = icmp ne i32 %t48, %t49
+  %t51 = zext i1 %t50 to i32
+  %t52 = xor i32 %t51, 1
+  %t53 = alloca i32
+  store i32 0, i32* %t53
+  %t54 = icmp ne i32 %t52, 0
+  br i1 %t54, label %label_22, label %label_23
 label_22:
-  %t46 = add i32 8, 0
-  %t47 = add i8 2, 0
-  %t48 = zext i8 %t47 to i32
-  %t49 = icmp sge i32 %t46, %t48
-  store i1 %t49, i1* %t45
+  %t55 = add i32 8, 0
+  %t56 = add i32 2, 0
+  %t57 = icmp sge i32 %t55, %t56
+  %t58 = zext i1 %t57 to i32
+  store i32 %t58, i32* %t53
   br label %label_23
 label_23:
-  %t50 = load i1, i1* %t45
-  br i1 %t50, label %label_24, label %label_25
+  %t59 = load i32, i32* %t53
+  %t60 = icmp ne i32 %t59, 0
+  br i1 %t60, label %label_24, label %label_25
 label_24:
-  %t51 = getelementptr [5 x i8], [5 x i8]* @.str7, i32 0, i32 0
-  call void @print(i8* %t51)
+  %t61 = getelementptr [5 x i8], [5 x i8]* @.str7, i32 0, i32 0
+  call void @print(i8* %t61)
   br label %label_26
 label_25:
   br label %label_26

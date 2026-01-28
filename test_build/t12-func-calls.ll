@@ -31,18 +31,19 @@ define void @print(i8*) {
   ret void
   }
   
-  define void @moo(i1) {
+  define void @moo(i32) {
   entry:
-  %t4 = alloca i1
-  store i1 %0, i1* %t4
-  %t5 = load i1, i1* %t4
-  br i1 %t5, label %label_4, label %label_5
+  %t4 = alloca i32
+  store i32 %0, i32* %t4
+  %t5 = load i32, i32* %t4
+  %t6 = icmp ne i32 %t5, 0
+  br i1 %t6, label %label_4, label %label_5
 label_4:
   call void @foo()
   br label %label_6
 label_5:
-  %t6 = add i32 110, 0
-  call void @bar(i32 %t6)
+  %t7 = add i32 110, 0
+  call void @bar(i32 %t7)
   br label %label_6
 label_6:
   ret void
@@ -51,13 +52,13 @@ label_6:
   define void @main() {
   entry:
   call void @foo()
-  %t7 = add i32 150, 0
-  call void @bar(i32 %t7)
-  %t8 = add i1 1, 0
-  call void @moo(i1 %t8)
+  %t8 = add i32 150, 0
+  call void @bar(i32 %t8)
+  %t9 = add i32 1, 0
+  call void @moo(i32 %t9)
   call void @foo()
-  %t9 = add i1 0, 0
-  call void @moo(i1 %t9)
+  %t10 = add i32 0, 0
+  call void @moo(i32 %t10)
   ret void
   }
   

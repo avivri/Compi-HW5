@@ -1,4 +1,15 @@
-/usr/bin/lli: lli: /mnt/c/Users/yairy/OneDrive - Technion/Technion/Semester E/CompilationIntro/Compi-HW5/test_build/t16-control-flow-weirdness.ll:175:3: error: expected instruction opcode
-  }
-  ^
-
+already? :(
+15
+ok
+7
+alright
+17
+ok
+here!
+322
+ok
+12
+back!
+18
+great
+0
