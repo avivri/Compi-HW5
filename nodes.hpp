@@ -8,25 +8,22 @@
 
 namespace ast {
 
-    /* Arithmetic operations */
     enum BinOpType {
-        ADD, // Addition
-        SUB, // Subtraction
-        MUL, // Multiplication
-        DIV  // Division
+        ADD,
+        SUB,
+        MUL,
+        DIV
     };
 
-    /* Relational operations */
     enum RelOpType {
-        EQ, // Equal
-        NE, // Not equal
-        LT, // Less than
-        GT, // Greater than
-        LE, // Less than or equal
-        GE  // Greater than or equal
+        EQ,
+        NE,
+        LT,
+        GT,
+        LE,
+        GE
     };
 
-    /* Built-in types */
     enum BuiltInType {
         VOID,
         BOOL,
@@ -35,40 +32,29 @@ namespace ast {
         STRING
     };
 
-    /* Base class for all AST nodes */
     class Node {
     public:
-        // Line number in the source code
         int line;
-
-        // Offset in the stack
         int offset = -1;
 
-        // Use this constructor only while parsing in bison or flex
         Node();
 
-        // Accept method for visitor pattern
         virtual void accept(Visitor &visitor) = 0;
     };
 
-    /* Base class for all expressions */
     class Exp : virtual public Node {
     public:
         BuiltInType type;
         Exp() = default;
     };
 
-    /* Base class for all statements */
     class Statement : virtual public Node {
     };
 
-    /* Number literal */
     class Num : public Exp {
     public:
-        // Value of the number
         int value;
 
-        // Constructor that receives a C-style string that represents the number
         explicit Num(const char *str);
 
         void accept(Visitor &visitor) override {
@@ -76,13 +62,10 @@ namespace ast {
         }
     };
 
-    /* Byte literal */
     class NumB : public Exp {
     public:
-        // Value of the number
         int value;
 
-        // Constructor that receives a C-style (including b character) string that represents the number
         explicit NumB(const char *str);
 
         void accept(Visitor &visitor) override {
