@@ -88,7 +88,7 @@ namespace output {
         bool contains(const std::string &name);
     };
 
-    class MyVisitor : public Visitor {
+    class SemanticVisitor : public Visitor {
     private:
         SymbolTable symbolTable;
         CodeBuffer buffer;
@@ -109,7 +109,7 @@ namespace output {
         void emitCast(const std::string& reg, ast::BuiltInType fromType, ast::BuiltInType toType); // Add this line
 
     public:
-        MyVisitor();
+        SemanticVisitor();
         
         void print_buf();
 

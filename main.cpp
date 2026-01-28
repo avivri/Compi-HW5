@@ -10,8 +10,8 @@ int main() {
     yyparse();
 
     // Print the AST using the PrintVisitor
-    output::MyVisitor visitor;
-    program->accept(visitor);
+    output::SemanticVisitor semanticVisitor;
+    program->accept(semanticVisitor);
 
-    visitor.print_buf();
+    semanticVisitor.print_buf();
 }

@@ -160,17 +160,17 @@ namespace output {
         return getSymbol(name) != nullptr;
     }
 
-    MyVisitor::MyVisitor() : blockTerminated(false) {
+    SemanticVisitor::SemanticVisitor() : blockTerminated(false) {
         buffer.emitGlobal("declare i32 @printf(i8*, ...)");
         buffer.emitGlobal("declare void @exit(i32)");
         emitPrintFunctions();
     }
 
-    void MyVisitor::print_buf() {
+    void SemanticVisitor::print_buf() {
         std::cout << buffer;
     }
 
-    std::string MyVisitor::getTypeStr(ast::BuiltInType type) {
+    std::string SemanticVisitor::getTypeStr(ast::BuiltInType type) {
         switch (type) {
             case ast::BuiltInType::INT: return "i32";
             case ast::BuiltInType::BYTE: return "i32";
@@ -181,11 +181,11 @@ namespace output {
         }
     }
 
-    std::string MyVisitor::getZeroValue(ast::BuiltInType type) {
+    std::string SemanticVisitor::getZeroValue(ast::BuiltInType type) {
         return "0";
     }
 
-    void MyVisitor::emitPrintFunctions() {
+    void SemanticVisitor::emitPrintFunctions() {
         buffer.emitGlobal("@.int_specifier = constant [4 x i8] c\"%d\\0A\\00\"");
         buffer.emitGlobal("@.str_specifier = constant [4 x i8] c\"%s\\0A\\00\"");
 
@@ -202,25 +202,24 @@ namespace output {
         buffer.emitGlobal("}");
     }
 
-    // helper to emit implicit cast if needed (Mainly just zext since we use i32 everywhere mostly)
-    void MyVisitor::emitCast(const std::string& reg, ast::BuiltInType fromType, ast::BuiltInType toType) {
+    void SemanticVisitor::emitCast(const std::string& reg, ast::BuiltInType fromType, ast::BuiltInType toType) {
         if (fromType == toType) return;
     }
 
-    void MyVisitor::visit(ast::Num &node) {
+    void SemanticVisitor::visit(ast::Num &node) {
         lastReg = buffer.freshVar();
         last_type = ast::BuiltInType::INT;
         buffer.emit(lastReg + " = add i32 " + std::to_string(node.value) + ", 0");
     }
 
-    void MyVisitor::visit(ast::NumB &node) {
+    void SemanticVisitor::visit(ast::NumB &node) {
         if (node.value > 255) errorByteTooLarge(node.line, node.value);
         lastReg = buffer.freshVar();
         last_type = ast::BuiltInType::BYTE;
         buffer.emit(lastReg + " = add i32 " + std::to_string(node.value) + ", 0");
     }
 
-    void MyVisitor::visit(ast::String &node) {
+    void SemanticVisitor::visit(ast::String &node) {
         std::string globalVar = buffer.emitString(node.value);
         lastReg = buffer.freshVar();
         last_type = ast::BuiltInType::STRING;
@@ -228,13 +227,13 @@ namespace output {
                     + std::to_string(node.value.length() + 1) + " x i8]* " + globalVar + ", i32 0, i32 0");
     }
 
-    void MyVisitor::visit(ast::Bool &node) {
+    void SemanticVisitor::visit(ast::Bool &node) {
         lastReg = buffer.freshVar();
         last_type = ast::BuiltInType::BOOL;
         buffer.emit(lastReg + " = add i32 " + (node.value ? "1" : "0") + ", 0");
     }
 
-    void MyVisitor::visit(ast::ID &node) {
+    void SemanticVisitor::visit(ast::ID &node) {
         Symbol* sym = symbolTable.getSymbol(node.value);
         if (!sym) errorUndef(node.line, node.value);
         if (sym->isFunction) errorDefAsFunc(node.line, node.value);
@@ -246,7 +245,7 @@ namespace output {
         buffer.emit(lastReg + " = load " + typeStr + ", " + typeStr + "* " + ptr);
     }
 
-    void MyVisitor::visit(ast::BinOp &node) {
+    void SemanticVisitor::visit(ast::BinOp &node) {
         node.left->accept(*this);
         std::string leftReg = lastReg;
         ast::BuiltInType leftType = last_type;
@@ -254,6 +253,11 @@ namespace output {
         node.right->accept(*this);
         std::string rightReg = lastReg;
         ast::BuiltInType rightType = last_type;
+
+        if ((leftType != ast::BuiltInType::INT && leftType != ast::BuiltInType::BYTE) ||
+            (rightType != ast::BuiltInType::INT && rightType != ast::BuiltInType::BYTE)) {
+            errorMismatch(node.line);
+        }
 
         ast::BuiltInType commonType = ast::BuiltInType::BYTE;
         if (leftType == ast::BuiltInType::INT || rightType == ast::BuiltInType::INT) {
@@ -292,15 +296,15 @@ namespace output {
         lastReg = buffer.freshVar();
         buffer.emit(lastReg + " = " + opCmd + " " + typeStr + " " + leftReg + ", " + rightReg);
         last_type = commonType;
-        
+
         if (commonType == ast::BuiltInType::BYTE) {
-             std::string truncReg = buffer.freshVar();
-             buffer.emit(truncReg + " = and i32 " + lastReg + ", 255");
-             lastReg = truncReg;
+            std::string truncReg = buffer.freshVar();
+            buffer.emit(truncReg + " = and i32 " + lastReg + ", 255");
+            lastReg = truncReg;
         }
     }
 
-    void MyVisitor::visit(ast::RelOp &node) {
+    void SemanticVisitor::visit(ast::RelOp &node) {
         node.left->accept(*this);
         std::string leftReg = lastReg;
         ast::BuiltInType leftType = last_type;
@@ -308,6 +312,11 @@ namespace output {
         node.right->accept(*this);
         std::string rightReg = lastReg;
         ast::BuiltInType rightType = last_type;
+
+        if ((leftType != ast::BuiltInType::INT && leftType != ast::BuiltInType::BYTE) ||
+            (rightType != ast::BuiltInType::INT && rightType != ast::BuiltInType::BYTE)) {
+            errorMismatch(node.line);
+        }
 
         ast::BuiltInType commonType = ast::BuiltInType::BYTE;
         if (leftType == ast::BuiltInType::INT || rightType == ast::BuiltInType::INT) {
@@ -327,22 +336,28 @@ namespace output {
 
         std::string i1Reg = buffer.freshVar();
         buffer.emit(i1Reg + " = icmp " + cmpMode + " " + typeStr + " " + leftReg + ", " + rightReg);
-        
+
         lastReg = buffer.freshVar();
         last_type = ast::BuiltInType::BOOL;
         buffer.emit(lastReg + " = zext i1 " + i1Reg + " to i32");
     }
 
-    void MyVisitor::visit(ast::Not &node) {
+    void SemanticVisitor::visit(ast::Not &node) {
         node.exp->accept(*this);
+        if (last_type != ast::BuiltInType::BOOL) {
+            errorMismatch(node.line);
+        }
         std::string valReg = lastReg;
         lastReg = buffer.freshVar();
         last_type = ast::BuiltInType::BOOL;
         buffer.emit(lastReg + " = xor i32 " + valReg + ", 1");
     }
 
-    void MyVisitor::visit(ast::And &node) {
+    void SemanticVisitor::visit(ast::And &node) {
         node.left->accept(*this);
+        if (last_type != ast::BuiltInType::BOOL) {
+            errorMismatch(node.line);
+        }
         std::string leftReg = lastReg;
         std::string checkRightLabel = buffer.freshLabel();
         std::string endLabel = buffer.freshLabel();
@@ -350,7 +365,7 @@ namespace output {
         std::string resPtr = buffer.freshVar();
         buffer.emit(resPtr + " = alloca i32");
         buffer.emit("store i32 0, i32* " + resPtr);
-        
+
         std::string leftBool = buffer.freshVar();
         buffer.emit(leftBool + " = icmp ne i32 " + leftReg + ", 0");
 
@@ -358,6 +373,9 @@ namespace output {
 
         buffer.emitLabel(checkRightLabel);
         node.right->accept(*this);
+        if (last_type != ast::BuiltInType::BOOL) {
+            errorMismatch(node.line);
+        }
         buffer.emit("store i32 " + lastReg + ", i32* " + resPtr);
         buffer.emit("br label %" + endLabel);
 
@@ -367,14 +385,17 @@ namespace output {
         buffer.emit(lastReg + " = load i32, i32* " + resPtr);
     }
 
-    void MyVisitor::visit(ast::Or &node) {
+    void SemanticVisitor::visit(ast::Or &node) {
         std::string resPtr = buffer.freshVar();
         buffer.emit(resPtr + " = alloca i32");
         buffer.emit("store i32 1, i32* " + resPtr);
 
         node.left->accept(*this);
+        if (last_type != ast::BuiltInType::BOOL) {
+            errorMismatch(node.line);
+        }
         std::string leftReg = lastReg;
-        
+
         std::string leftBool = buffer.freshVar();
         buffer.emit(leftBool + " = icmp ne i32 " + leftReg + ", 0");
 
@@ -385,6 +406,9 @@ namespace output {
 
         buffer.emitLabel(checkRightLabel);
         node.right->accept(*this);
+        if (last_type != ast::BuiltInType::BOOL) {
+            errorMismatch(node.line);
+        }
         buffer.emit("store i32 " + lastReg + ", i32* " + resPtr);
         buffer.emit("br label %" + endLabel);
 
@@ -394,21 +418,21 @@ namespace output {
         buffer.emit(lastReg + " = load i32, i32* " + resPtr);
     }
 
-    void MyVisitor::visit(ast::Type &node) {
+    void SemanticVisitor::visit(ast::Type &node) {
     }
 
-    void MyVisitor::visit(ast::Cast &node) {
+    void SemanticVisitor::visit(ast::Cast &node) {
         node.exp->accept(*this);
         ast::BuiltInType exp_type = last_type;
         ast::BuiltInType target_type = node.target_type->type;
-        
+
         if (!((exp_type == ast::BuiltInType::INT || exp_type == ast::BuiltInType::BYTE) &&
-             (target_type == ast::BuiltInType::INT || target_type == ast::BuiltInType::BYTE))) {
-                 errorMismatch(node.line);
+              (target_type == ast::BuiltInType::INT || target_type == ast::BuiltInType::BYTE))) {
+            errorMismatch(node.line);
         }
 
         last_type = target_type;
-        
+
         if (exp_type == ast::BuiltInType::INT && target_type == ast::BuiltInType::BYTE) {
             std::string newReg = buffer.freshVar();
             buffer.emit(newReg + " = and i32 " + lastReg + ", 255");
@@ -416,20 +440,45 @@ namespace output {
         }
     }
 
-    void MyVisitor::visit(ast::ExpList &node) {
+    void SemanticVisitor::visit(ast::ExpList &node) {
     }
 
-    void MyVisitor::visit(ast::Call &node) {
+    void SemanticVisitor::visit(ast::Call &node) {
         std::string funcName = node.func_id->value;
         Symbol* sym = symbolTable.getSymbol(funcName);
+        if (!sym) errorUndefFunc(node.line, funcName);
 
         std::vector<std::string> argRegs;
         std::vector<ast::BuiltInType> argTypes;
 
-        for (auto &exp : node.args->exps) {
-            exp->accept(*this);
+        if (sym->paramTypes.size() != node.args->exps.size()) {
+            std::vector<std::string> expectedTypes;
+            for(auto t : sym->paramTypes) expectedTypes.push_back(getTypeStr(t));
+            errorPrototypeMismatch(node.line, funcName, expectedTypes);
+        }
+
+        for (size_t i = 0; i < node.args->exps.size(); ++i) {
+            node.args->exps[i]->accept(*this);
             argRegs.push_back(lastReg);
             argTypes.push_back(last_type);
+
+            ast::BuiltInType expected = sym->paramTypes[i];
+            ast::BuiltInType actual = last_type;
+
+            if (expected != actual) {
+                if (expected == ast::BuiltInType::INT && actual == ast::BuiltInType::BYTE) {
+                } else {
+                    std::vector<std::string> expectedTypes;
+                    for(auto t : sym->paramTypes) {
+                        if (t == ast::BuiltInType::INT) expectedTypes.push_back("INT");
+                        else if (t == ast::BuiltInType::BYTE) expectedTypes.push_back("BYTE");
+                        else if (t == ast::BuiltInType::BOOL) expectedTypes.push_back("BOOL");
+                        else if (t == ast::BuiltInType::STRING) expectedTypes.push_back("STRING");
+                        else expectedTypes.push_back("VOID");
+                    }
+                    errorPrototypeMismatch(node.line, funcName, expectedTypes);
+                }
+            }
         }
 
         std::string callStr = "call " + getTypeStr(sym->retType) + " @" + funcName + "(";
@@ -437,7 +486,6 @@ namespace output {
         for (size_t i = 0; i < argRegs.size(); ++i) {
             std::string reg = argRegs[i];
             ast::BuiltInType expected = sym->paramTypes[i];
-            ast::BuiltInType actual = argTypes[i];
 
             callStr += getTypeStr(expected) + " " + reg;
             if (i < argRegs.size() - 1) callStr += ", ";
@@ -455,7 +503,7 @@ namespace output {
         }
     }
 
-    void MyVisitor::visit(ast::Statements &node) {
+    void SemanticVisitor::visit(ast::Statements &node) {
         symbolTable.pushScope();
         for (auto &stmt : node.statements) {
             stmt->accept(*this);
@@ -463,42 +511,53 @@ namespace output {
         symbolTable.popScope();
     }
 
-    void MyVisitor::visit(ast::Break &node) {
+    void SemanticVisitor::visit(ast::Break &node) {
         if (loopBreakLabels.empty()) errorUnexpectedBreak(node.line);
         buffer.emit("br label %" + loopBreakLabels.top());
-        
+
         std::string deadLabel = buffer.freshLabel();
         buffer.emitLabel(deadLabel);
     }
 
-    void MyVisitor::visit(ast::Continue &node) {
+    void SemanticVisitor::visit(ast::Continue &node) {
         if (loopContinueLabels.empty()) errorUnexpectedContinue(node.line);
         buffer.emit("br label %" + loopContinueLabels.top());
-        
+
         std::string deadLabel = buffer.freshLabel();
         buffer.emitLabel(deadLabel);
     }
 
-    void MyVisitor::visit(ast::Return &node) {
+    void SemanticVisitor::visit(ast::Return &node) {
         if (node.exp) {
+            if (currentFuncRetType == ast::BuiltInType::VOID) {
+                errorMismatch(node.line);
+            }
             node.exp->accept(*this);
             if (currentFuncRetType != last_type) {
                 if (!(last_type == ast::BuiltInType::BYTE && currentFuncRetType == ast::BuiltInType::INT)) {
+                    errorMismatch(node.line);
                 }
             }
             buffer.emit("ret " + getTypeStr(currentFuncRetType) + " " + lastReg);
         } else {
+            if (currentFuncRetType != ast::BuiltInType::VOID) {
+                errorMismatch(node.line);
+            }
             buffer.emit("ret void");
         }
-        
+
         std::string deadLabel = buffer.freshLabel();
         buffer.emitLabel(deadLabel);
     }
 
-    void MyVisitor::visit(ast::If &node) {
+    void SemanticVisitor::visit(ast::If &node) {
         symbolTable.pushScope();
         node.condition->accept(*this);
-        
+
+        if (last_type != ast::BuiltInType::BOOL && last_type != ast::BuiltInType::INT && last_type != ast::BuiltInType::BYTE) {
+            errorMismatch(node.line);
+        }
+
         std::string condReg = buffer.freshVar();
         buffer.emit(condReg + " = icmp ne i32 " + lastReg + ", 0");
 
@@ -522,7 +581,7 @@ namespace output {
         symbolTable.popScope();
     }
 
-    void MyVisitor::visit(ast::While &node) {
+    void SemanticVisitor::visit(ast::While &node) {
         std::string condLabel = buffer.freshLabel();
         std::string bodyLabel = buffer.freshLabel();
         std::string endLabel = buffer.freshLabel();
@@ -534,10 +593,14 @@ namespace output {
 
         buffer.emitLabel(condLabel);
         node.condition->accept(*this);
-        
+
+        if (last_type != ast::BuiltInType::BOOL && last_type != ast::BuiltInType::INT && last_type != ast::BuiltInType::BYTE) {
+            errorMismatch(node.line);
+        }
+
         std::string condReg = buffer.freshVar();
         buffer.emit(condReg + " = icmp ne i32 " + lastReg + ", 0");
-        
+
         buffer.emit("br i1 " + condReg + ", label %" + bodyLabel + ", label %" + endLabel);
 
         buffer.emitLabel(bodyLabel);
@@ -548,12 +611,14 @@ namespace output {
         buffer.emit("br label %" + condLabel);
 
         buffer.emitLabel(endLabel);
-        
+
         loopContinueLabels.pop();
         loopBreakLabels.pop();
     }
 
-    void MyVisitor::visit(ast::VarDecl &node) {
+    void SemanticVisitor::visit(ast::VarDecl &node) {
+        if (symbolTable.contains(node.id->value)) errorDef(node.line, node.id->value);
+
         std::string typeStr = getTypeStr(node.type->type);
         std::string ptrVar = buffer.freshVar();
         buffer.emit(ptrVar + " = alloca " + typeStr);
@@ -562,33 +627,55 @@ namespace output {
 
         if (node.init_exp) {
             node.init_exp->accept(*this);
+            if (node.type->type != last_type) {
+                if (!(last_type == ast::BuiltInType::BYTE && node.type->type == ast::BuiltInType::INT)) {
+                    errorMismatch(node.line);
+                }
+            }
             buffer.emit("store " + typeStr + " " + lastReg + ", " + typeStr + "* " + ptrVar);
         } else {
             buffer.emit("store " + typeStr + " 0, " + typeStr + "* " + ptrVar);
         }
     }
 
-    void MyVisitor::visit(ast::Assign &node) {
+    void SemanticVisitor::visit(ast::Assign &node) {
         Symbol* sym = symbolTable.getSymbol(node.id->value);
         if (!sym) errorUndef(node.line, node.id->value);
 
         node.exp->accept(*this);
+
+        if (sym->type != last_type) {
+            if (!(last_type == ast::BuiltInType::BYTE && sym->type == ast::BuiltInType::INT)) {
+                errorMismatch(node.line);
+            }
+        }
+
         std::string typeStr = getTypeStr(sym->type);
         buffer.emit("store " + typeStr + " " + lastReg + ", " + typeStr + "* " + sym->llvmVar);
     }
 
-    void MyVisitor::visit(ast::Formal &node) {
+    void SemanticVisitor::visit(ast::Formal &node) {
     }
 
-    void MyVisitor::visit(ast::Formals &node) {
+    void SemanticVisitor::visit(ast::Formals &node) {
     }
 
-    void MyVisitor::visit(ast::FuncDecl &node) {
-        symbolTable.pushScope();
-
+    void SemanticVisitor::visit(ast::FuncDecl &node) {
         std::string funcName = node.id->value;
         currentFuncRetType = node.return_type->type;
         currentFuncEndLabel = buffer.freshLabel();
+
+        for (auto &formal : node.formals->formals) {
+            if (formal->id->value == funcName) errorDef(node.line, formal->id->value);
+        }
+
+        for(size_t i = 0; i < node.formals->formals.size(); ++i) {
+            for(size_t j = i + 1; j < node.formals->formals.size(); ++j) {
+                if (node.formals->formals[i]->id->value == node.formals->formals[j]->id->value) {
+                    errorDef(node.line, node.formals->formals[i]->id->value);
+                }
+            }
+        }
 
         std::string sig = "define " + getTypeStr(currentFuncRetType) + " @" + funcName + "(";
 
@@ -606,8 +693,6 @@ namespace output {
 
         buffer.emit("entry:");
 
-        symbolTable.popScope();
-        symbolTable.insertFunc(funcName, currentFuncRetType, paramTypes);
         symbolTable.pushScope();
 
         int argCounter = 0;
@@ -634,8 +719,19 @@ namespace output {
         symbolTable.popScope();
     }
 
-    void MyVisitor::visit(ast::Funcs &node) {
+    void SemanticVisitor::visit(ast::Funcs &node) {
         buffer.emitGlobal("@.str_div_err = constant [23 x i8] c\"Error division by zero\\00\"");
+
+        for (auto &func : node.funcs) {
+            std::string funcName = func->id->value;
+            if (symbolTable.contains(funcName)) errorDef(func->line, funcName);
+
+            std::vector<ast::BuiltInType> paramTypes;
+            for (auto &formal : func->formals->formals) {
+                paramTypes.push_back(formal->type->type);
+            }
+            symbolTable.insertFunc(funcName, func->return_type->type, paramTypes);
+        }
 
         for (auto &func : node.funcs) {
             func->accept(*this);
