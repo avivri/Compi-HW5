@@ -24,9 +24,9 @@ define void @print(i8*) {
   entry:
   %t1 = add i32 1, 0
   %t2 = add i32 2, 0
-  %t3 = add i32 %t1, %t2
-  %t4 = add i32 3, 0
-  %t5 = mul i32 %t3, %t4
+  %t3 = add i32 3, 0
+  %t4 = mul i32 %t2, %t3
+  %t5 = add i32 %t1, %t4
   %t6 = add i32 4, 0
   %t7 = add i32 %t5, %t6
   ret i32 %t7

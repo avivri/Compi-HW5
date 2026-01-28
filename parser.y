@@ -12,18 +12,23 @@ std::shared_ptr<ast::Node> program;
 using namespace std;
 %}
 
-%token VOID INT BYTE B BOOL CONST TRUE FALSE RETURN IF ELSE WHILE BREAK CONTINUE SC COMMA LBRACE RBRACE LBRACK RBRACK ASSIGN RELOP BINOP COMMENT ID NUM NUM_B STRING
+%token VOID INT BYTE B BOOL CONST TRUE FALSE RETURN IF ELSE WHILE BREAK CONTINUE SC COMMA LBRACE RBRACE LBRACK RBRACK ASSIGN COMMENT ID NUM NUM_B STRING
+
+%token ADD SUB MUL DIV
+%token EQ NE LT GT LE GE
 
 %right ASSIGN
 %left OR
 %left AND
-%left RELOP
-%left BINOP
+%left EQ NE
+%left LT GT LE GE
+%left ADD SUB
+%left MUL DIV
 %right NOT
 %left LBRACK RBRACK
 %left LPAREN RPAREN
 
-%nonassoc LOWER_THAN_ELSE //dummy for ELSE s/r conflict
+%nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
 
 %%
@@ -191,15 +196,56 @@ Type: INT {
     ;
 
 Exp: LPAREN Exp RPAREN {$$ = $2;}
-    | Exp BINOP Exp { auto left = std::dynamic_pointer_cast<ast::Exp>($1);
+    | Exp ADD Exp {
+        auto left = std::dynamic_pointer_cast<ast::Exp>($1);
         auto right = std::dynamic_pointer_cast<ast::Exp>($3);
-        
-        auto numNode = std::dynamic_pointer_cast<ast::Num>($2);
-    
-
-        ast::BinOpType op = static_cast<ast::BinOpType>(numNode->value);
-
-        $$ = std::make_shared<ast::BinOp>(left, right, op);}
+        $$ = std::make_shared<ast::BinOp>(left, right, ast::ADD);
+    }
+    | Exp SUB Exp {
+        auto left = std::dynamic_pointer_cast<ast::Exp>($1);
+        auto right = std::dynamic_pointer_cast<ast::Exp>($3);
+        $$ = std::make_shared<ast::BinOp>(left, right, ast::SUB);
+    }
+    | Exp MUL Exp {
+        auto left = std::dynamic_pointer_cast<ast::Exp>($1);
+        auto right = std::dynamic_pointer_cast<ast::Exp>($3);
+        $$ = std::make_shared<ast::BinOp>(left, right, ast::MUL);
+    }
+    | Exp DIV Exp {
+        auto left = std::dynamic_pointer_cast<ast::Exp>($1);
+        auto right = std::dynamic_pointer_cast<ast::Exp>($3);
+        $$ = std::make_shared<ast::BinOp>(left, right, ast::DIV);
+    }
+    | Exp EQ Exp {
+        auto left = std::dynamic_pointer_cast<ast::Exp>($1);
+        auto right = std::dynamic_pointer_cast<ast::Exp>($3);
+        $$ = std::make_shared<ast::RelOp>(left, right, ast::EQ);
+    }
+    | Exp NE Exp {
+        auto left = std::dynamic_pointer_cast<ast::Exp>($1);
+        auto right = std::dynamic_pointer_cast<ast::Exp>($3);
+        $$ = std::make_shared<ast::RelOp>(left, right, ast::NE);
+    }
+    | Exp LT Exp {
+        auto left = std::dynamic_pointer_cast<ast::Exp>($1);
+        auto right = std::dynamic_pointer_cast<ast::Exp>($3);
+        $$ = std::make_shared<ast::RelOp>(left, right, ast::LT);
+    }
+    | Exp GT Exp {
+        auto left = std::dynamic_pointer_cast<ast::Exp>($1);
+        auto right = std::dynamic_pointer_cast<ast::Exp>($3);
+        $$ = std::make_shared<ast::RelOp>(left, right, ast::GT);
+    }
+    | Exp LE Exp {
+        auto left = std::dynamic_pointer_cast<ast::Exp>($1);
+        auto right = std::dynamic_pointer_cast<ast::Exp>($3);
+        $$ = std::make_shared<ast::RelOp>(left, right, ast::LE);
+    }
+    | Exp GE Exp {
+        auto left = std::dynamic_pointer_cast<ast::Exp>($1);
+        auto right = std::dynamic_pointer_cast<ast::Exp>($3);
+        $$ = std::make_shared<ast::RelOp>(left, right, ast::GE);
+    }
     | ID {$$ = $1;}
     | Call {
         $$ = $1;
@@ -217,15 +263,6 @@ Exp: LPAREN Exp RPAREN {$$ = $2;}
     | Exp OR Exp {auto left = std::dynamic_pointer_cast<ast::Exp>($1);
         auto right = std::dynamic_pointer_cast<ast::Exp>($3);
         $$ = std::make_shared<ast::Or>(left, right);}
-    | Exp RELOP Exp { auto left = std::dynamic_pointer_cast<ast::Exp>($1);
-        auto right = std::dynamic_pointer_cast<ast::Exp>($3);
-        
-        auto numNode = std::dynamic_pointer_cast<ast::Num>($2);
-    
-
-        ast::RelOpType op = static_cast<ast::RelOpType>(numNode->value);
-
-        $$ = std::make_shared<ast::RelOp>(left, right, op);}
     | LPAREN Type RPAREN Exp {auto type = std::dynamic_pointer_cast<ast::Type>($2);
         auto exp = std::dynamic_pointer_cast<ast::Exp>($4);
         $$ = std::make_shared<ast::Cast>(exp, type);

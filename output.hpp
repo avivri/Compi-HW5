@@ -11,7 +11,6 @@
 
 namespace output {
 
-    // Error handling functions (Standard for HW5)
     void errorLex(int lineno);
     void errorSyn(int lineno);
     void errorUndef(int lineno, const std::string &id);
@@ -27,7 +26,6 @@ namespace output {
     void errorByteTooLarge(int lineno, int value);
     void errorDivByZero(int lineno);
 
-    // CodeBuffer class (Provided utility)
     class CodeBuffer {
     private:
         std::stringstream globalsBuffer;
@@ -53,13 +51,11 @@ namespace output {
             return *this;
         }
         
-        // Helper to access globals buffer directly if needed
         std::stringstream& getGlobalsBuffer() { return globalsBuffer; }
     };
 
     std::ostream &operator<<(std::ostream &os, const CodeBuffer &buffer);
 
-    // Extended Symbol class based on avivri HW3
     class Symbol {
     public:
         std::string name;
@@ -69,19 +65,15 @@ namespace output {
         std::vector<ast::BuiltInType> paramTypes;
         ast::BuiltInType retType;
         
-        // New for HW5: LLVM register name (e.g., "%val" or "%1")
-        std::string llvmVar; 
+        std::string llvmVar;
 
-        // Variable constructor
         Symbol(std::string n, ast::BuiltInType t, int off, std::string llvmName = "")
             : name(n), type(t), offset(off), isFunction(false), retType(ast::BuiltInType::VOID), llvmVar(llvmName) {}
 
-        // Function constructor
         Symbol(std::string n, ast::BuiltInType ret, std::vector<ast::BuiltInType> params)
             : name(n), type(ret), offset(0), isFunction(true), paramTypes(params), retType(ret), llvmVar("") {}
     };
 
-    // SymbolTable adapted from avivri HW3
     class SymbolTable {
         std::vector<std::vector<Symbol>> tables;
         std::vector<int> offsets;
@@ -101,19 +93,16 @@ namespace output {
         SymbolTable symbolTable;
         CodeBuffer buffer;
         
-        // Context variables
         std::stack<std::string> loopContinueLabels;
         std::stack<std::string> loopBreakLabels;
         std::string currentFuncEndLabel;
         ast::BuiltInType currentFuncRetType;
         
-        // Used to pass register names up the tree
         std::string lastReg;
 
         ast::BuiltInType last_type;
         bool blockTerminated = false;
 
-        // Helper methods
         std::string getTypeStr(ast::BuiltInType type);
         std::string getZeroValue(ast::BuiltInType type);
         void emitPrintFunctions();

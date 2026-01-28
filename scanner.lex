@@ -46,18 +46,18 @@ continue    return CONTINUE;
 \]   return RBRACK;
 \=   return ASSIGN;
 
-"+"   { make_op(ast::ADD); return BINOP; }
-"-"   { make_op(ast::SUB); return BINOP; }
-"*"   { make_op(ast::MUL); return BINOP; }
-"/"   { make_op(ast::DIV); return BINOP; }
 
-"=="  { make_op(ast::EQ); return RELOP; }
-"!="  { make_op(ast::NE); return RELOP; }
-"<"   { make_op(ast::LT); return RELOP; }
-">"   { make_op(ast::GT); return RELOP; }
-"<="  { make_op(ast::LE); return RELOP; }
-">="  { make_op(ast::GE); return RELOP; }
+\+          { return ADD; }
+\-          { return SUB; }
+\* { return MUL; }
+\/          { return DIV; }
 
+"=="        { return EQ; }
+"!="        { return NE; }
+"<"         { return LT; }
+">"         { return GT; }
+"<="        { return LE; }
+">="        { return GE; }
 
 \/\/.* ;
 

@@ -6,7 +6,6 @@ extern int yylineno;
 
 namespace output {
 
-    // --- Error Handling Implementations ---
     void errorLex(int lineno) {
         std::cout << "line " << lineno << ": lexical error" << std::endl;
         exit(0);
@@ -82,7 +81,6 @@ namespace output {
         exit(0);
     }
 
-    // --- CodeBuffer Implementation ---
     CodeBuffer::CodeBuffer() : labelCount(0), varCount(0), stringCount(0) {}
 
     std::string CodeBuffer::freshLabel() {
@@ -117,7 +115,6 @@ namespace output {
         return os;
     }
 
-    // --- SymbolTable Implementation ---
     SymbolTable::SymbolTable() {
         pushScope();
         std::vector<ast::BuiltInType> printTypes = {ast::BuiltInType::STRING};
@@ -163,8 +160,6 @@ namespace output {
         return getSymbol(name) != nullptr;
     }
 
-    // --- MyVisitor Implementation ---
-
     MyVisitor::MyVisitor() : blockTerminated(false) {
         buffer.emitGlobal("declare i32 @printf(i8*, ...)");
         buffer.emitGlobal("declare void @exit(i32)");
@@ -178,8 +173,8 @@ namespace output {
     std::string MyVisitor::getTypeStr(ast::BuiltInType type) {
         switch (type) {
             case ast::BuiltInType::INT: return "i32";
-            case ast::BuiltInType::BYTE: return "i32"; // Promote BYTE to i32
-            case ast::BuiltInType::BOOL: return "i32"; // Promote BOOL to i32
+            case ast::BuiltInType::BYTE: return "i32";
+            case ast::BuiltInType::BOOL: return "i32";
             case ast::BuiltInType::VOID: return "void";
             case ast::BuiltInType::STRING: return "i8*";
             default: return "i32";
@@ -207,13 +202,9 @@ namespace output {
         buffer.emitGlobal("}");
     }
 
-    // Helper to emit implicit cast if needed (Mainly just zext since we use i32 everywhere mostly)
+    // helper to emit implicit cast if needed (Mainly just zext since we use i32 everywhere mostly)
     void MyVisitor::emitCast(const std::string& reg, ast::BuiltInType fromType, ast::BuiltInType toType) {
         if (fromType == toType) return;
-        
-        // Logical casts (just checks, since storage is i32)
-        // No explicit LLVM instructions needed if we treat everything as i32
-        // except when dealing with truncation for BYTE, handled in BinOp logic.
     }
 
     void MyVisitor::visit(ast::Num &node) {
@@ -264,17 +255,13 @@ namespace output {
         std::string rightReg = lastReg;
         ast::BuiltInType rightType = last_type;
 
-        // Determine common type (promote to INT if needed)
         ast::BuiltInType commonType = ast::BuiltInType::BYTE;
         if (leftType == ast::BuiltInType::INT || rightType == ast::BuiltInType::INT) {
             commonType = ast::BuiltInType::INT;
         }
 
-        // Since we use i32 for everything, implicit promotion is already done via storage.
-        
         std::string typeStr = "i32";
 
-        // Check for division by zero
         if (node.op == ast::BinOpType::DIV) {
             std::string checkReg = buffer.freshVar();
             buffer.emit(checkReg + " = icmp eq i32 " + rightReg + ", 0");
@@ -306,7 +293,6 @@ namespace output {
         buffer.emit(lastReg + " = " + opCmd + " " + typeStr + " " + leftReg + ", " + rightReg);
         last_type = commonType;
         
-        // Truncate if result is BYTE
         if (commonType == ast::BuiltInType::BYTE) {
              std::string truncReg = buffer.freshVar();
              buffer.emit(truncReg + " = and i32 " + lastReg + ", 255");
@@ -453,10 +439,6 @@ namespace output {
             ast::BuiltInType expected = sym->paramTypes[i];
             ast::BuiltInType actual = argTypes[i];
 
-            if (actual != expected) {
-                // Allow BYTE to INT (no logic needed since both are i32 storage, just type check passed)
-            }
-
             callStr += getTypeStr(expected) + " " + reg;
             if (i < argRegs.size() - 1) callStr += ", ";
         }
@@ -485,7 +467,6 @@ namespace output {
         if (loopBreakLabels.empty()) errorUnexpectedBreak(node.line);
         buffer.emit("br label %" + loopBreakLabels.top());
         
-        // Unreachable block hack
         std::string deadLabel = buffer.freshLabel();
         buffer.emitLabel(deadLabel);
     }
@@ -494,7 +475,6 @@ namespace output {
         if (loopContinueLabels.empty()) errorUnexpectedContinue(node.line);
         buffer.emit("br label %" + loopContinueLabels.top());
         
-        // Unreachable block hack
         std::string deadLabel = buffer.freshLabel();
         buffer.emitLabel(deadLabel);
     }
@@ -502,10 +482,8 @@ namespace output {
     void MyVisitor::visit(ast::Return &node) {
         if (node.exp) {
             node.exp->accept(*this);
-            // Implicit check/cast logic
             if (currentFuncRetType != last_type) {
                 if (!(last_type == ast::BuiltInType::BYTE && currentFuncRetType == ast::BuiltInType::INT)) {
-                     // Technically mismatch handled by checker, but here we assume correct
                 }
             }
             buffer.emit("ret " + getTypeStr(currentFuncRetType) + " " + lastReg);
@@ -513,7 +491,6 @@ namespace output {
             buffer.emit("ret void");
         }
         
-        // Unreachable block hack
         std::string deadLabel = buffer.freshLabel();
         buffer.emitLabel(deadLabel);
     }
@@ -522,7 +499,6 @@ namespace output {
         symbolTable.pushScope();
         node.condition->accept(*this);
         
-        // Ensure bool is i1 for branching
         std::string condReg = buffer.freshVar();
         buffer.emit(condReg + " = icmp ne i32 " + lastReg + ", 0");
 
@@ -551,7 +527,6 @@ namespace output {
         std::string bodyLabel = buffer.freshLabel();
         std::string endLabel = buffer.freshLabel();
 
-        // Push labels BEFORE entering loop scope (so scope logic in statements aligns)
         loopContinueLabels.push(condLabel);
         loopBreakLabels.push(endLabel);
 
@@ -671,5 +646,4 @@ namespace output {
             errorMainMissing();
         }
     }
-
-} // namespace output
+}

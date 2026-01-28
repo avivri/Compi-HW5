@@ -60,9 +60,9 @@ label_9:
   unreachable
 label_8:
   %t24 = sdiv i32 %t21, %t22
-  %t25 = sub i32 %t18, %t24
-  %t26 = add i32 10, 0
-  %t27 = mul i32 %t25, %t26
+  %t25 = add i32 10, 0
+  %t26 = mul i32 %t24, %t25
+  %t27 = sub i32 %t18, %t26
   %t28 = add i32 0, 0
   %t29 = icmp eq i32 %t27, %t28
   %t30 = zext i1 %t29 to i32
@@ -130,9 +130,9 @@ label_24:
   unreachable
 label_23:
   %t58 = sdiv i32 %t55, %t56
-  %t59 = sub i32 %t54, %t58
-  %t60 = add i32 2, 0
-  %t61 = mul i32 %t59, %t60
+  %t59 = add i32 2, 0
+  %t60 = mul i32 %t58, %t59
+  %t61 = sub i32 %t54, %t60
   %t62 = add i32 0, 0
   %t63 = icmp eq i32 %t61, %t62
   %t64 = zext i1 %t63 to i32
